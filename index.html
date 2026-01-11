@@ -4,34 +4,14 @@
 <meta charset="UTF-8">
 <title>OPSucht Markt</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #1e1e1e;
-        color: #eee;
-        margin: 20px;
-    }
-    table {
-        border-collapse: collapse;
-        width: 100%;
-    }
-    th, td {
-        padding: 8px 12px;
-        text-align: left;
-        border-bottom: 1px solid #444;
-    }
-    th {
-        background-color: #111;
-        cursor: pointer;
-    }
+    body { font-family: Arial, sans-serif; background: #1e1e1e; color: #eee; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #444; }
+    th { background-color: #111; cursor: pointer; }
     tr:hover { background-color: #333; }
     .profit { color: #0f0; font-weight: bold; }
     .loss   { color: #f00; font-weight: bold; }
-    img.icon {
-        width: 24px;
-        height: 24px;
-        vertical-align: middle;
-        margin-right: 6px;
-    }
+    img.icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -49,59 +29,91 @@
             <th>Margin %</th>
         </tr>
     </thead>
-    <tbody>
-        <!-- Dynamisch gefüllt -->
-    </tbody>
+    <tbody></tbody>
 </table>
 
 <script>
-// Beispiel-Daten, Item-Namen passend zu mc-icons Repo
-const items = [
-    {name:"slime_spawn_egg", category:"Mob", buy:0, sell:5100000},
-    {name:"chorus_plant", category:"Pflanze", buy:0, sell:1000},
-    {name:"farmland", category:"Block", buy:0, sell:2.4},
-    {name:"infested_cracked_stone_bricks", category:"Block", buy:0, sell:0.9},
-    {name:"infested_chiseled_stone_bricks", category:"Block", buy:0, sell:0.9},
-];
-
-// mc-icons nutzen
-function getIcon(item) {
-    return `https://cdn.jsdelivr.net/gh/undrfined/mc-icons@main/icons/16/${item}.png`;
+// map OPSucht-Namen → mc-icons Basisnamen
+function mapToIconName(name) {
+    return name.toLowerCase()
+               .replace(/ /g, "_")
+               .replace(/-/g, "_")
+               .replace(/\./g, "")
+               .replace(/\//g, "")
+               .replace(/__/g, "_");
 }
 
-// Tabelle füllen
-const tbody = document.querySelector("#markt tbody");
-items.forEach(item => {
-    let profit = item.sell - item.buy;
-    let margin = item.buy ? ((profit/item.buy)*100).toFixed(2) : "∞";
-    let row = document.createElement("tr");
-    row.innerHTML = `
-        <td><img class="icon" src="${getIcon(item.name)}" onerror="this.src='https://via.placeholder.com/24'"></td>
-        <td>${item.name}</td>
-        <td>${item.category}</td>
-        <td>${item.buy}</td>
-        <td>${item.sell}</td>
-        <td class="${profit>0?'profit':'loss'}">${profit.toFixed(2)}</td>
-        <td>${margin}</td>
-    `;
-    tbody.appendChild(row);
-});
+// Versuche alternative Namen für Spawn Eggs etc.
+function getAlternativeNames(name) {
+    const alt = [];
+    // Spawn Egg Spezialfall
+    if(name.includes("spawn_egg")) {
+        let parts = name.split("_spawn_egg");
+        alt.push(`spawn_egg_${parts[0]}`); // slime_spawn_egg → spawn_egg_slime
+    }
+    return alt;
+}
 
-// Sortierfunktion
-document.querySelectorAll("th").forEach((th, index) => {
-    th.addEventListener("click", () => {
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-        rows.sort((a,b) => {
-            const aVal = a.children[index].textContent;
-            const bVal = b.children[index].textContent;
-            const aNum = parseFloat(aVal.replace(/,/g,""));
-            const bNum = parseFloat(bVal.replace(/,/g,""));
-            if(!isNaN(aNum) && !isNaN(bNum)) return bNum - aNum;
-            return aVal.localeCompare(bVal);
+// Icon-Loader mit Fallback
+function loadIcon(imgEl, baseName) {
+    const baseURL = "https://cdn.jsdelivr.net/gh/undrfined/mc-icons@main/icons/16/";
+    const alternatives = [baseName, ...getAlternativeNames(baseName)];
+
+    let i = 0;
+    imgEl.onerror = function() {
+        i++;
+        if(i < alternatives.length) {
+            imgEl.src = baseURL + alternatives[i] + ".png";
+        } else {
+            imgEl.src = "https://via.placeholder.com/24";
+        }
+    };
+    imgEl.src = baseURL + alternatives[i] + ".png";
+}
+
+// Markt-Daten holen
+fetch("https://api.opsucht.net/market/prices")
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.querySelector("#markt tbody");
+        data.forEach(item => {
+            const iconName = mapToIconName(item.name);
+            let profit = item.sell - item.buy;
+            let margin = item.buy ? ((profit/item.buy)*100).toFixed(2) : "∞";
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td><img class="icon"></td>
+                <td>${item.name}</td>
+                <td>${item.category || '-'}</td>
+                <td>${item.buy}</td>
+                <td>${item.sell}</td>
+                <td class="${profit>0?'profit':'loss'}">${profit.toFixed(2)}</td>
+                <td>${margin}</td>
+            `;
+            tbody.appendChild(row);
+
+            // Icon laden
+            const imgEl = row.querySelector("img.icon");
+            loadIcon(imgEl, iconName);
         });
-        rows.forEach(r => tbody.appendChild(r));
-    });
-});
+
+        // Sortierung
+        document.querySelectorAll("th").forEach((th, index) => {
+            th.addEventListener("click", () => {
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+                rows.sort((a,b) => {
+                    const aVal = a.children[index].textContent;
+                    const bVal = b.children[index].textContent;
+                    const aNum = parseFloat(aVal.replace(/,/g,""));
+                    const bNum = parseFloat(bVal.replace(/,/g,""));
+                    if(!isNaN(aNum) && !isNaN(bNum)) return bNum - aNum;
+                    return aVal.localeCompare(bVal);
+                });
+                rows.forEach(r => tbody.appendChild(r));
+            });
+        });
+    })
+    .catch(err => console.error("Fehler beim Laden der API:", err));
 </script>
 
 </body>
