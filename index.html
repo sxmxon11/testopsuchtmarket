@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>OPSucht Markt</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #1e1e1e;
+        color: #eee;
+        margin: 20px;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    th, td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #444;
+    }
+    th {
+        background-color: #111;
+        cursor: pointer;
+    }
+    tr:hover { background-color: #333; }
+    .profit { color: #0f0; font-weight: bold; }
+    .loss   { color: #f00; font-weight: bold; }
+    img.icon {
+        width: 24px;
+        height: 24px;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+</style>
+</head>
+<body>
+
+<h1>OPSucht Markt</h1>
+<table id="markt">
+    <thead>
+        <tr>
+            <th>Icon</th>
+            <th>Item</th>
+            <th>Category</th>
+            <th>Buy</th>
+            <th>Sell</th>
+            <th>Profit</th>
+            <th>Margin %</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Dynamisch gefüllt -->
+    </tbody>
+</table>
+
+<script>
+// Beispiel-Daten, Item-Namen passend zu mc-icons Repo
+const items = [
+    {name:"slime_spawn_egg", category:"Mob", buy:0, sell:5100000},
+    {name:"chorus_plant", category:"Pflanze", buy:0, sell:1000},
+    {name:"farmland", category:"Block", buy:0, sell:2.4},
+    {name:"infested_cracked_stone_bricks", category:"Block", buy:0, sell:0.9},
+    {name:"infested_chiseled_stone_bricks", category:"Block", buy:0, sell:0.9},
+];
+
+// mc-icons nutzen
+function getIcon(item) {
+    return `https://cdn.jsdelivr.net/gh/undrfined/mc-icons@main/icons/16/${item}.png`;
+}
+
+// Tabelle füllen
+const tbody = document.querySelector("#markt tbody");
+items.forEach(item => {
+    let profit = item.sell - item.buy;
+    let margin = item.buy ? ((profit/item.buy)*100).toFixed(2) : "∞";
+    let row = document.createElement("tr");
+    row.innerHTML = `
+        <td><img class="icon" src="${getIcon(item.name)}" onerror="this.src='https://via.placeholder.com/24'"></td>
+        <td>${item.name}</td>
+        <td>${item.category}</td>
+        <td>${item.buy}</td>
+        <td>${item.sell}</td>
+        <td class="${profit>0?'profit':'loss'}">${profit.toFixed(2)}</td>
+        <td>${margin}</td>
+    `;
+    tbody.appendChild(row);
+});
+
+// Sortierfunktion
+document.querySelectorAll("th").forEach((th, index) => {
+    th.addEventListener("click", () => {
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        rows.sort((a,b) => {
+            const aVal = a.children[index].textContent;
+            const bVal = b.children[index].textContent;
+            const aNum = parseFloat(aVal.replace(/,/g,""));
+            const bNum = parseFloat(bVal.replace(/,/g,""));
+            if(!isNaN(aNum) && !isNaN(bNum)) return bNum - aNum;
+            return aVal.localeCompare(bVal);
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    });
+});
+</script>
+
+</body>
+</html>
